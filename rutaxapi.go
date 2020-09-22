@@ -6,7 +6,10 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"os"
 	"strconv"
+
+	"github.com/BurntSushi/toml"
 )
 
 var (
@@ -17,21 +20,61 @@ var (
 	contentType = "application/json"
 )
 
-// TaxAPI ...
-type TaxAPI struct {
-	client       *http.Client
-	session      string
-	secret       string
-	refreshToken string
+// Credentials ...
+type Credentials struct {
+	Session      string `toml:"session"`
+	Secret       string `toml:"client_secret"`
+	RefreshToken string `toml:"refresh_token"`
 }
 
-// New ...
-func New(client *http.Client, session string, secret string, refreshToken string) *TaxAPI {
+// TaxAPI ...
+type TaxAPI struct {
+	client                  *http.Client
+	credChangeChan          chan Credentials
+	credUpdatesCompleteChan chan bool
+	creds                   *Credentials
+}
+
+// FromFile ...
+func FromFile(client *http.Client, filePath string) (*TaxAPI, error) {
+	creds := Credentials{}
+	_, err := toml.DecodeFile(filePath, &creds)
+
+	if err != nil {
+		return nil, err
+	}
+
+	credChangeChan := make(chan Credentials)
+	credUpdatesCompleteChan := make(chan bool)
+	// Обновляем файл каждый раз
+	go updateCreds(credChangeChan, credUpdatesCompleteChan, filePath)
+
 	return &TaxAPI{
-		client:       client,
-		session:      session,
-		secret:       secret,
-		refreshToken: refreshToken,
+		credChangeChan:          credChangeChan,
+		credUpdatesCompleteChan: credUpdatesCompleteChan,
+		client:                  client,
+		creds:                   &creds,
+	}, nil
+}
+
+func updateCreds(credChangeChan chan Credentials, credUpdatesCompleteChan chan bool, output string) error {
+	file, err := os.OpenFile(output, os.O_WRONLY|os.O_CREATE, 0666)
+
+	if err != nil {
+		return err
+	}
+
+	for {
+		creds := <-credChangeChan
+		encoder := toml.NewEncoder(file)
+
+		err := encoder.Encode(creds)
+
+		if err != nil {
+			return err
+		}
+
+		credUpdatesCompleteChan <- true
 	}
 }
 
@@ -42,15 +85,15 @@ type refreshSessionRequestBody struct {
 
 // RefreshSessionResponseBody ...
 type refreshSessionResponseBody struct {
-	Session      string `json:"session_id"`
+	Session      string `json:"sessionId"`
 	RefreshToken string `json:"refresh_token"`
 }
 
 // RefreshSession ...
 func (t *TaxAPI) RefreshSession() error {
 	data := refreshSessionRequestBody{
-		ClientSecret: t.secret,
-		RefreshToken: t.refreshToken,
+		ClientSecret: t.creds.Secret,
+		RefreshToken: t.creds.RefreshToken,
 	}
 	body, err := json.Marshal(data)
 	if err != nil {
@@ -66,7 +109,7 @@ func (t *TaxAPI) RefreshSession() error {
 	req.Header.Set("Device-Id", deviceID)
 	req.Header.Set("Device-OS", deviceOS)
 	req.Header.Set("Content-Type", contentType)
-	req.Header.Set("sessionId", t.session)
+	req.Header.Set("sessionId", t.creds.Session)
 
 	res, err := t.client.Do(req)
 	if err != nil {
@@ -84,8 +127,16 @@ func (t *TaxAPI) RefreshSession() error {
 		return err
 	}
 
-	t.session = result.Session
-	t.refreshToken = result.RefreshToken
+	creds := Credentials{
+		Session:      result.Session,
+		RefreshToken: result.RefreshToken,
+		Secret:       t.creds.Secret,
+	}
+
+	t.creds = &creds
+
+	t.credChangeChan <- creds
+	<-t.credUpdatesCompleteChan
 	return nil
 }
 
@@ -104,7 +155,6 @@ func (t *TaxAPI) GetTicketID(qrString string) (string, error) {
 	}
 	body, err := json.Marshal(data)
 	if err != nil {
-		fmt.Printf("error at encoding body")
 		return "", nil
 	}
 
@@ -115,7 +165,7 @@ func (t *TaxAPI) GetTicketID(qrString string) (string, error) {
 	}
 	req.Header.Set("Content-Type", contentType)
 	req.Header.Set("Content-Length", strconv.Itoa(bodyBuf.Len()))
-	req.Header.Set("sessionId", t.session)
+	req.Header.Set("sessionId", t.creds.Session)
 
 	res, err := t.client.Do(req)
 	if err != nil {
@@ -161,7 +211,7 @@ func (t *TaxAPI) GetTicketInfo(ticketID string) (result GetTicketInfoResponseBod
 	}
 	req.Header.Set("Device-OS", deviceOS)
 	req.Header.Set("Device-Id", deviceID)
-	req.Header.Set("sessionId", t.session)
+	req.Header.Set("sessionId", t.creds.Session)
 
 	res, err := t.client.Do(req)
 	if err != nil {
