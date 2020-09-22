@@ -94,8 +94,24 @@ type GetTicketInfoResponseBody struct {
 		Sum  float64 `json:"sum"`
 	} `json:"operation"`
 	Seller struct {
-		Inn string `json:"inn"`
+		Name string `json:"name"`
+		INN  string `json:"inn"`
 	} `json:"seller"`
+	Ticket struct {
+		Document struct {
+			Receipt struct {
+				Items []struct {
+					Name     string  `json:"name"`
+					Price    float64 `json:"price"`
+					Quantity float64 `json:"quantity"`
+					Sum      float64 `json:"sum"`
+				} `json:"items"`
+			} `json:"receipt"`
+		} `json:"document"`
+	} `json:"ticket"`
+	Organization struct {
+		Name string `json:"name"`
+	} `json:"organization"`
 }
 
 // GetTicketInfo ...

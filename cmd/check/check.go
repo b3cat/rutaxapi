@@ -1,27 +1,59 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
+	"flag"
+	"image"
+	_ "image/jpeg"
+	"io/ioutil"
 	"net/http"
 
 	"github.com/b3cat/rutaxapi"
+	"github.com/liyue201/goqr"
 	"github.com/sirupsen/logrus"
 )
 
 var (
-	log = logrus.New()
+	log        = logrus.New()
+	qrPath     = flag.String("qr", "qr.jpg", "jpeg file of qr code")
+	configPath = flag.String("config", "config.toml", ".toml file config path")
 )
 
+func recognizeQrCode(path string) (result string, err error) {
+	imgdata, err := ioutil.ReadFile(path)
+	if err != nil {
+		return
+	}
+
+	img, _, err := image.Decode(bytes.NewReader(imgdata))
+	if err != nil {
+		return
+	}
+	qrCodes, err := goqr.Recognize(img)
+	if err != nil {
+		return
+	}
+
+	return string(qrCodes[0].Payload), nil
+}
+
 func main() {
+	flag.Parse()
 	client := &http.Client{}
 
-	taxAPI, err := rutaxapi.FromFile(client, "config.toml")
+	taxAPI, err := rutaxapi.FromFile(client, *configPath)
 	if err != nil {
 		log.Fatal(err)
 	}
 
+	qr, err := recognizeQrCode(*qrPath)
+	if err != nil {
+		return
+	}
+
 	log.Info("Trying to get ticket ID")
-	ticketID, err := taxAPI.GetTicketID("t=20200915T1518&s=1280.00&fn=9280440300539716&i=11442&fp=3147580442&n=1")
+	ticketID, err := taxAPI.GetTicketID(qr)
 
 	if err != nil {
 		log.Fatal(err)
