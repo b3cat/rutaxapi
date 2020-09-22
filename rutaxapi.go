@@ -74,9 +74,10 @@ func updateCreds(credChangeChan chan Credentials, credUpdatesCompleteChan chan b
 
 func (t *TaxAPI) getBaseRequestHeaders() http.Header {
 	headersMap := map[string]string{
-		"Device-OS": "Android",
-		"Device-ID": "1234",
-		"Sessionid": t.creds.Session,
+		"Sessionid":    t.creds.Session,
+		"Device-OS":    "Android",
+		"Device-ID":    "1234",
+		"Content-Type": "application/json",
 	}
 
 	headers := http.Header{}
@@ -94,21 +95,18 @@ func getEndpoint(method string) string {
 
 func (t *TaxAPI) makeRequest(method string, uri string, body []byte, extraHeaders map[string]string) (result []byte, err error) {
 	endpoint := getEndpoint(uri)
-	headers := t.getBaseRequestHeaders()
-
-	for k, v := range extraHeaders {
-		headers.Add(k, v)
-	}
-
 	bodyBuf := bytes.NewBuffer(body)
-	headers.Add("Content-Type", "application/json")
-
 	req, err := http.NewRequest(method, endpoint, bodyBuf)
 	if err != nil {
 		return
 	}
 
+	headers := t.getBaseRequestHeaders()
+	for k, v := range extraHeaders {
+		headers.Add(k, v)
+	}
 	req.Header = headers
+
 	res, err := t.client.Do(req)
 
 	if err != nil {
