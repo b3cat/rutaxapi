@@ -84,8 +84,8 @@ func (t *TaxAPI) GetTicketID(qrString string) (id string, err error) {
 	return result.ID, nil
 }
 
-// GetTicketInfoResponseBody ...
-type GetTicketInfoResponseBody struct {
+// TicketInfo ...
+type TicketInfo struct {
 	ID        string  `json:"id"`
 	Status    float64 `json:"status"`
 	Operation struct {
@@ -115,7 +115,7 @@ type GetTicketInfoResponseBody struct {
 }
 
 // GetTicketInfo ...
-func (t *TaxAPI) GetTicketInfo(ticketID string) (result GetTicketInfoResponseBody, err error) {
+func (t *TaxAPI) GetTicketInfo(ticketID string) (result TicketInfo, err error) {
 	uri := fmt.Sprintf("tickets/%s", ticketID)
 	responseData, err := t.makeRequest("GET", uri, nil, nil)
 	if err != nil {
