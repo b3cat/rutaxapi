@@ -53,10 +53,11 @@ func FromFile(client *http.Client, filePath string) (*TaxAPI, error) {
 
 func updateCreds(credChangeChan chan Credentials, credUpdatesCompleteChan chan bool, output string) error {
 	file, err := os.OpenFile(output, os.O_WRONLY|os.O_CREATE, 0666)
-
 	if err != nil {
 		return err
 	}
+
+	defer file.Close()
 
 	for {
 		creds := <-credChangeChan
