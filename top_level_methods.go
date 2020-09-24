@@ -3,18 +3,26 @@ package rutaxapi
 import (
 	"image"
 
-	"github.com/liyue201/goqr"
+	"github.com/makiuchi-d/gozxing"
+	"github.com/makiuchi-d/gozxing/qrcode"
 )
 
 // GetTicketInfoByQr ...
 func (t *TaxAPI) GetTicketInfoByQr(qr image.Image) (result TicketInfo, err error) {
-	qrCodes, err := goqr.Recognize(qr)
+	bmp, err := gozxing.NewBinaryBitmapFromImage(qr)
 	if err != nil {
 		return
 	}
+	// decode image
+	qrReader := qrcode.NewQRCodeReader()
+	res, err := qrReader.Decode(bmp, nil)
+	if err != nil {
+		return
+	}
+	text := res.GetText()
 
-	qrString := string(qrCodes[0].Payload)
-	ticketID, err := t.GetTicketID(qrString)
+	t.log.Infof("QR Query: %s", text)
+	ticketID, err := t.GetTicketID(text)
 	if err != nil {
 		return
 	}

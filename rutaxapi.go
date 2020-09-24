@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/BurntSushi/toml"
+	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -24,6 +25,7 @@ type Credentials struct {
 
 // TaxAPI ...
 type TaxAPI struct {
+	log                     *logrus.Logger
 	client                  *http.Client
 	creds                   *Credentials
 	credChangeChan          chan Credentials
@@ -31,7 +33,7 @@ type TaxAPI struct {
 }
 
 // FromFile ...
-func FromFile(client *http.Client, filePath string) (*TaxAPI, error) {
+func FromFile(client *http.Client, log *logrus.Logger, filePath string) (*TaxAPI, error) {
 	creds := Credentials{}
 	_, err := toml.DecodeFile(filePath, &creds)
 
@@ -48,6 +50,7 @@ func FromFile(client *http.Client, filePath string) (*TaxAPI, error) {
 		credUpdatesCompleteChan: credUpdatesCompleteChan,
 		client:                  client,
 		creds:                   &creds,
+		log:                     log,
 	}, nil
 }
 

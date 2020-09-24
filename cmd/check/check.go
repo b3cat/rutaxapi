@@ -24,7 +24,7 @@ func main() {
 	flag.Parse()
 	client := &http.Client{}
 
-	taxAPI, err := rutaxapi.FromFile(client, *configPath)
+	taxAPI, err := rutaxapi.FromFile(client, log, *configPath)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -46,9 +46,4 @@ func main() {
 
 	prettyTicketInfo, _ := json.MarshalIndent(ticketInfo, "", "  ")
 	log.Infof("Ticket Info: %s", prettyTicketInfo)
-
-	log.Info("Попробуем обновить сессию сами")
-	if err = taxAPI.RefreshSession(); err != nil {
-		log.Fatal(err)
-	}
 }
